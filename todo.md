@@ -1,5 +1,5 @@
 ### Project tasks
-- Set up web server
+- [OK] Set up web server
 - Set up CRUD routes
 - Set up logging
 - Set up error handling
