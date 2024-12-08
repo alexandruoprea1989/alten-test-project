@@ -1,59 +1,75 @@
 package com.alexandru.alten.controller;
 
-import jakarta.websocket.server.PathParam;
+import com.alexandru.alten.model.api.ApiProduct;
+import com.alexandru.alten.model.db.Product;
+import com.alexandru.alten.model.form.FormProduct;
+import com.alexandru.alten.store.CategoryRepository;
+import com.alexandru.alten.store.ProductRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
-
-record CreateProductForm(String product, String category) {}
-
-record DeleteProductResult(String product, Integer count) {}
-
-record Products(List<String> products) {}
 
 @RestController
 public class ProductController {
 
-    private static final Map<String, List<String>> productMap = new HashMap<>(Map.of(
-            "meat", new ArrayList<>(List.of("Fish")),
-            "vegetable", new ArrayList<>(List.of("Bean", "Carrot"))
-    ));
+    public record DeleteProductResponse(Boolean success) {}
+    public record GetProductsResponse(List<ApiProduct> products) {}
 
-    @PostMapping("/product")
-    public String addProduct(@RequestBody CreateProductForm form) {
-        String category = form.category();
-        String product = form.product();
+    private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
-        // If category already exists
-        if (productMap.containsKey(category)) {
-            productMap.get(category).add(product);
-            return product;
-        }
-
-        productMap.put(category, new ArrayList<>(List.of(product)));
-        return product;
+    @Autowired
+    public ProductController(CategoryRepository categoryRepository, ProductRepository productRepository) {
+        this.categoryRepository = categoryRepository;
+        this.productRepository = productRepository;
     }
 
-    @DeleteMapping("/product/{product}")
-    public DeleteProductResult deleteProduct(@PathVariable("product") String product) {
-        Integer byCategoryCount = productMap.values().stream()
-                .map(productList -> productList.remove(product))
-                .mapToInt(removed -> removed ? 1 : 0).sum();
+    @PostMapping("/product")
+    public ResponseEntity<ApiProduct> createProduct(@RequestBody FormProduct form) {
+        // TODO Add form validation
+        return categoryRepository.findById(form.getCategoryId()).map(category -> {
+            Product productToSave = Product.withFormAndCategories(form, Collections.singletonList(category));
+            Product savedProduct = productRepository.save(productToSave);
 
-        return new DeleteProductResult(product, byCategoryCount);
+            return ResponseEntity.ok(ApiProduct.fromDb(savedProduct));
+        }).orElse(ResponseEntity.badRequest().build());
+    }
+
+    @DeleteMapping("/product/{productId}")
+    public ResponseEntity<DeleteProductResponse> deleteProduct(@PathVariable("productId") String productId) {
+        if (productId == null || !productId.chars().allMatch(Character::isDigit)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Long productIdNum = Long.parseLong(productId);
+
+        if (!productRepository.existsById(productIdNum)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        productRepository.deleteById(productIdNum);
+
+        return ResponseEntity.ok(new DeleteProductResponse(true));
     }
 
     @GetMapping("/product")
-    public Products getProducts(@RequestParam(value = "category", defaultValue = "") String category) {
-        if (category.isBlank()) {
-            return new Products(productMap.values().stream().flatMap(List::stream).sorted().toList());
+    public ResponseEntity<GetProductsResponse> getProducts(@RequestParam(value = "categoryId", defaultValue = "") String categoryId) {
+        if (categoryId.isBlank()) {
+            return ResponseEntity.ok(
+                    new GetProductsResponse(
+                            productRepository.findAll().stream().map(ApiProduct::fromDb).toList()
+                    )
+            );
         }
-
-        return new Products(
-                Optional.ofNullable(productMap.get(category))
-                        .orElse(Collections.emptyList())
-                        .stream().sorted().toList()
-        );
+        return categoryRepository
+                .findById(Long.parseLong(categoryId))
+                .map(List::of)
+                .map(productRepository::findByCategories)
+                .map(products -> products.stream().map(ApiProduct::fromDb).toList())
+                .map(GetProductsResponse::new)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.badRequest().build());
     }
 }
