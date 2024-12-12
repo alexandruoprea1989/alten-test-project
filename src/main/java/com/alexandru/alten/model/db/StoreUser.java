@@ -2,6 +2,8 @@ package com.alexandru.alten.model.db;
 
 import jakarta.persistence.*;
 
+import java.util.List;
+
 @Entity
 public class StoreUser {
 
@@ -12,18 +14,24 @@ public class StoreUser {
     @OneToOne(optional = true)
     private ProductOrder order;
 
+    @ManyToMany
+    private List<StoreUserRole> roles;
+
     @Column(nullable = false)
-    private String name;
+    private String username;
+
+    @Column(nullable = false)
+    private String password;
+
+    private Boolean tokenExpired;
 
     private StoreUser() {}
 
-    public StoreUser(String name) {
-        this.name = name;
-    }
-
-    public StoreUser(String name, ProductOrder order) {
-        this.name = name;
-        this.order = order;
+    public StoreUser(String username, String password, List<StoreUserRole> roles) {
+        this.username = username;
+        this.password = password;
+        this.roles = roles;
+        this.tokenExpired = false;
     }
 
     public Long getId() {
@@ -34,7 +42,19 @@ public class StoreUser {
         return order;
     }
 
-    public String getName() {
-        return name;
+    public List<StoreUserRole> getRoles() {
+        return roles;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public Boolean getTokenExpired() {
+        return tokenExpired;
     }
 }

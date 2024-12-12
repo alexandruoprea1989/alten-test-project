@@ -1,6 +1,8 @@
 ## About
 Demo project for Alten.
 
+It is a rest API server, built using spring-boot, using in-memory H2 database.
+
 ## How to run project
 ### Requirements
 - Java 17.0
@@ -11,6 +13,9 @@ Demo project for Alten.
 - Once startup completes, web server should be up and running on port `8080`.
 
 ### Available APIs
+
+### Note: Endpoints don't work right now due to in progress auth/aut implementation - use a previous commit.
+
 #### Category
 - Create: `curl -X POST -H "Content-Type: application/json" -d '{"name": "Garden"}' localhost:8080/category`.
 - Get (all): `curl localhost:8080/category`.
